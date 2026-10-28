@@ -161,6 +161,7 @@ select { width: 100%; font: inherit; padding: 8px 10px; border-radius: 10px; bor
         <strong id="count">0곳</strong><span id="countSub"></span>
       </div>
       <div class="cards" id="cards"></div>
+      <button class="more" id="moreFit" type="button" hidden></button>
       <button class="more" id="toggleOut" type="button" hidden></button>
       <div class="cards" id="outCards" hidden></div>
 
@@ -206,7 +207,9 @@ const INDOOR = {
 };
 
 const $ = (id) => document.getElementById(id);
-const state = { kg: 4.5, kind: "전체", area: "전체", indoor: false, entryFree: false, free: false, care: false, vet: false, showOut: false };
+const state = { kg: 4.5, kind: "전체", area: "전체", indoor: false, entryFree: false, free: false, care: false, vet: false, showOut: false, limit: 30 };
+// 장소가 수백 곳이라 카드는 30개씩 끊어서 보여 줌
+const PAGE = 30;
 // 예시 데이터: 공원·산책만 입장료 대상 (운동장은 유료)
 PLACES.forEach(p => { if (p.kind === "공원·산책") { p.entry = p.fee > 0 ? "paid" : "free"; p.entryText = p.fee > 0 ? `${p.fee.toLocaleString("ko-KR")}원` : "무료"; if (p.fee > 0) p.fee = 0; } });
 let usingSample = true;
@@ -291,23 +294,29 @@ function card(p, why) {
   return el;
 }
 
-function render() {
+function render(keepLimit) {
+  if (!keepLimit) state.limit = PAGE;
   $("wv").textContent = state.kg % 1 === 0 ? state.kg.toFixed(0) : state.kg.toFixed(1);
   $("sizeName").textContent = sizeName(state.kg);
   const scope = PLACES.filter(p => (state.kind === "전체" || p.kind === state.kind) && (state.area === "전체" || p.area.startsWith(state.area)));
   const fit = [], out = [];
   scope.forEach(p => { const w = reasons(p); (w.length ? out : fit).push([p, w]); });
-  fit.sort((a, b) => Number(b[0].mong) - Number(a[0].mong) || Number(b[0].maxKg != null || !!b[0].noLimit) - Number(a[0].maxKg != null || !!a[0].noLimit) || (a[0].vetKm ?? 99) - (b[0].vetKm ?? 99));
+  // 공공데이터의 대부분이 아울렛 안 매장(쇼핑)이라, "전체"에서는 쇼핑을 뒤로 보냄
+  fit.sort((a, b) => Number(b[0].mong) - Number(a[0].mong) || Number(a[0].kind === "쇼핑") - Number(b[0].kind === "쇼핑") || Number(b[0].maxKg != null || !!b[0].noLimit) - Number(a[0].maxKg != null || !!a[0].noLimit) || (a[0].vetKm ?? 99) - (b[0].vetKm ?? 99));
   $("count").textContent = fit.length + "곳";
   $("countSub").textContent = `${state.kg}kg ${sizeName(state.kg)}가 갈 수 있는 곳` + (out.length ? ` · 조건이 안 맞는 곳 ${out.length}곳` : "") + (dataInfo ? ` · ${dataInfo}` : "");
   const cards = $("cards"); cards.replaceChildren();
-  if (fit.length) fit.forEach(([p, w]) => cards.append(card(p, w)));
+  if (fit.length) fit.slice(0, state.limit).forEach(([p, w]) => cards.append(card(p, w)));
   else { const e = document.createElement("div"); e.className = "empty"; e.textContent = "조건에 맞는 곳이 없어요. 꼭 필요한 조건을 하나 풀어 보세요."; cards.append(e); }
+  const more = $("moreFit"), left = fit.length - state.limit;
+  more.hidden = left <= 0;
+  more.textContent = `${Math.min(left, PAGE)}곳 더 보기 (남은 곳 ${left}곳)`;
   const btn = $("toggleOut"), oc = $("outCards");
   btn.hidden = out.length === 0;
   btn.textContent = state.showOut ? "조건 안 맞는 곳 접기" : `조건 안 맞는 곳 ${out.length}곳도 보기`;
   oc.hidden = !state.showOut || out.length === 0;
-  oc.replaceChildren(); out.forEach(([p, w]) => oc.append(card(p, w)));
+  oc.replaceChildren();
+  if (state.showOut) out.slice(0, PAGE).forEach(([p, w]) => oc.append(card(p, w)));
 }
 
 async function loadJson(path) {
@@ -352,7 +361,8 @@ async function init() {
   $("weight").addEventListener("input", e => { state.kg = Number(e.target.value); render(); });
   [["fIndoor", "indoor"], ["fEntry", "entryFree"], ["fFree", "free"], ["fCare", "care"], ["fVet", "vet"]].forEach(([id, key]) =>
     $(id).addEventListener("change", e => { state[key] = e.target.checked; render(); }));
-  $("toggleOut").addEventListener("click", () => { state.showOut = !state.showOut; render(); });
+  $("toggleOut").addEventListener("click", () => { state.showOut = !state.showOut; render(true); });
+  $("moreFit").addEventListener("click", () => { state.limit += PAGE; render(true); });
   render();
 }
 init();
