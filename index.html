@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>몽글 동반지도</title>
+<meta name="description" content="우리 강아지 몸무게와 조건으로 같이 갈 수 있는 숙소·카페·식당·산책 장소를 골라 주는 반려견 동반지도">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%BE%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: 왼쪽 "우리 강아지 조건" 패널 + 오른쪽 결과 카드. 폰에서는 위아래로 쌓임 */
+:root {
+  --bg: #f3f6f5;
+  --surface: #ffffff;
+  --ink: #17302e;
+  --muted: #5c706d;
+  --line: #d6e0de;
+  --accent: #0f7a6c;
+  --accent-soft: #dcefeb;
+  --ball: #e9c42a;
+  --ball-ink: #3d3200;
+  --ok: #1d7a3f;
+  --ok-soft: #e1f2e6;
+  --warn: #9a5a00;
+  --warn-soft: #fbeed6;
+  --no: #a23b3b;
+  --no-soft: #f7e3e3;
+  --font-display: "Do Hyeon", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1918; --surface: #172422; --ink: #e3eeec; --muted: #9db3af; --line: #2a3b39;
+    --accent: #4cc3b0; --accent-soft: #1d3a36; --ball: #e9c42a; --ball-ink: #2a2200;
+    --ok: #6fd394; --ok-soft: #173325; --warn: #f0b45a; --warn-soft: #3a2b12; --no: #f08b8b; --no-soft: #3b1d1d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1918; --surface: #172422; --ink: #e3eeec; --muted: #9db3af; --line: #2a3b39;
+  --accent: #4cc3b0; --accent-soft: #1d3a36; --ball: #e9c42a; --ball-ink: #2a2200;
+  --ok: #6fd394; --ok-soft: #173325; --warn: #f0b45a; --warn-soft: #3a2b12; --no: #f08b8b; --no-soft: #3b1d1d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(32px, 6vw, 46px); line-height: 1; margin: 0; letter-spacing: -0.01em; }
+h1 .dot { color: var(--ball); -webkit-text-stroke: 1px var(--ball-ink); }
+.tag { margin: 6px 0 0; color: var(--muted); }
+.sample-note { background: var(--ball); color: var(--ball-ink); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; }
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 820px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 18px; }
+@media (min-width: 821px) { .panel { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); } }
+.panel h2 { font-family: var(--font-display); font-weight: 400; font-size: 22px; margin: 0; }
+.field { display: grid; gap: 8px; }
+.label { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--muted); }
+.weight-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.weight-val { font-family: var(--font-display); font-size: 30px; font-variant-numeric: tabular-nums; }
+.weight-val small { font-family: var(--font-body); font-size: 14px; color: var(--muted); margin-left: 2px; }
+.size-name { font-size: 13px; color: var(--accent); font-weight: 700; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.chip:focus-visible, select:focus-visible, .toggle input:focus-visible + span, button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
+select { width: 100%; font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.toggles { display: grid; gap: 8px; }
+.toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; }
+.toggle input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.results { display: grid; gap: 14px; min-width: 0; }
+.summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.summary strong { font-family: var(--font-display); font-weight: 400; font-size: 26px; }
+.summary span { color: var(--muted); font-size: 14px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.card.dim { opacity: 0.62; }
+.card-top { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.card h3 { margin: 0; font-size: 17px; line-height: 1.35; text-wrap: balance; }
+.meta { color: var(--muted); font-size: 13px; }
+.kind { flex: none; font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 3px 8px; }
+.conds { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cond { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 8px; font-size: 14px; align-items: start; }
+.cond dt { color: var(--muted); font-size: 13px; }
+.cond dd { margin: 0; }
+.pill { display: inline-block; border-radius: 6px; padding: 1px 7px; font-size: 13px; font-weight: 500; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.no { background: var(--no-soft); color: var(--no); }
+.why { font-size: 13px; color: var(--no); margin: 0; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; color: var(--muted); }
+.badge.mong { border-color: var(--ball); background: var(--ball); color: var(--ball-ink); font-weight: 700; }
+.checked { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; font-variant-numeric: tabular-nums; }
+.more { justify-self: start; font: inherit; font-size: 14px; background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 24px; text-align: center; color: var(--muted); }
+.about { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 10px; }
+.about h2 { font-family: var(--font-display); font-weight: 400; font-size: 22px; margin: 0; }
+.about ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.about p { margin: 0; color: var(--muted); font-size: 14px; max-width: 65ch; }
+@media (prefers-reduced-motion: no-preference) { .card { transition: opacity .2s ease; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>몽글 동반지도<span class="dot">●</span></h1>
+      <p class="tag">"강아지 동반 가능"에서 끝나지 않고, 우리 강아지 조건으로 갈 수 있는 곳만 골라 드려요.</p>
+    </div>
+    <span class="sample-note">시제품 · 장소는 모두 예시 데이터</span>
+  </header>
+
+  <div class="layout">
+    <aside class="panel" aria-label="우리 강아지 조건">
+      <h2>우리 강아지 조건</h2>
+
+      <div class="field">
+        <span class="label">몸무게</span>
+        <div class="weight-row">
+          <span class="weight-val"><span id="wv">4.5</span><small>kg</small></span>
+          <span class="size-name" id="sizeName">소형견</span>
+        </div>
+        <input id="weight" type="range" min="1" max="40" step="0.5" value="4.5" aria-label="강아지 몸무게">
+      </div>
+
+      <div class="field">
+        <span class="label">어디로</span>
+        <div class="chips" id="kindChips"></div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="area">지역</label>
+        <select id="area"></select>
+      </div>
+
+      <div class="field">
+        <span class="label">꼭 필요한 조건</span>
+        <div class="toggles">
+          <label class="toggle"><input type="checkbox" id="fIndoor"><span>실내까지 같이 들어갈 수 있는 곳</span></label>
+          <label class="toggle"><input type="checkbox" id="fEntry"><span>입장료 무료인 곳 (공원·관광지·체험)</span></label>
+          <label class="toggle"><input type="checkbox" id="fFree"><span>반려견 추가 요금 없는 곳</span></label>
+          <label class="toggle"><input type="checkbox" id="fCare"><span>노견·회복기(넥카라) 강아지 OK</span></label>
+          <label class="toggle"><input type="checkbox" id="fVet"><span>24시 동물병원 3km 이내</span></label>
+        </div>
+      </div>
+    </aside>
+
+    <main class="results">
+      <div class="summary" aria-live="polite">
+        <strong id="count">0곳</strong><span id="countSub"></span>
+      </div>
+      <div class="cards" id="cards"></div>
+      <button class="more" id="toggleOut" type="button" hidden></button>
+      <div class="cards" id="outCards" hidden></div>
+
+      <section class="about">
+        <h2>이 시제품이 하려는 것</h2>
+        <ul>
+          <li><b>몸무게로 걸러 주기</b>: "소형견만"이 몇 kg까지인지 장소마다 달라서, 실제 기준 kg으로 비교해요.</li>
+          <li><b>조건을 한눈에</b>: 실내 동반, 추가 요금, 준비물, 가까운 24시 병원까지 카드에서 바로 보여요.</li>
+          <li><b>회복기 강아지 배려</b>: 넥카라를 했거나 나이 든 강아지도 편하게 갈 수 있는 곳을 따로 표시해요.</li>
+          <li><b>확인 날짜 표시</b>: 동반 조건은 자주 바뀌어서, 언제 확인한 정보인지 항상 같이 보여요.</li>
+        </ul>
+        <p id="aboutData">실제 서비스에서는 한국관광공사 반려동물 동반여행 공개 데이터로 기본 목록을 채우고, 몽글이와 직접 다녀온 곳은 "몽글이 다녀옴" 표시와 블로그 후기를 연결할 계획이에요. 지금 보이는 장소 이름과 조건은 화면 확인용으로 만든 예시라 실제 장소가 아니에요.</p>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const PLACES = [
+  { name: "예시) 바다정원 애견펜션", kind: "숙소", area: "인천 중구 · 영종도", maxKg: 15, indoor: "full", fee: 20000, items: "매너벨트, 개인 담요", vetKm: 4.2, care: true, mong: false, checked: "2026-10-15" },
+  { name: "예시) 솔숲 독채 스테이", kind: "숙소", area: "인천 강화군", maxKg: null, indoor: "full", fee: 30000, items: "리드줄, 배변봉투", vetKm: 9.8, care: true, mong: false, checked: "2026-10-02" },
+  { name: "예시) 소소 하우스", kind: "숙소", area: "경기 김포시", maxKg: 7, indoor: "full", fee: 0, items: "케이지 지참", vetKm: 2.1, care: false, mong: false, checked: "2026-09-28" },
+  { name: "예시) 멍스테이 호텔 송도", kind: "숙소", area: "인천 연수구 · 송도", maxKg: 10, indoor: "full", fee: 25000, items: "매너벨트 필수", vetKm: 1.3, care: true, mong: false, checked: "2026-10-18" },
+  { name: "예시) 테라스 브루잉", kind: "카페", area: "인천 연수구 · 송도", maxKg: null, indoor: "terrace", fee: 0, items: "리드줄 1.5m 이내", vetKm: 1.8, care: true, mong: false, checked: "2026-10-12" },
+  { name: "예시) 주안 골목 커피", kind: "카페", area: "인천 미추홀구 · 주안", maxKg: 10, indoor: "full", fee: 0, items: "바닥 내려놓기 금지(안고 있기)", vetKm: 0.9, care: true, mong: true, checked: "2026-10-20" },
+  { name: "예시) 들판 애견카페", kind: "카페", area: "경기 김포시", maxKg: null, indoor: "full", fee: 8000, items: "예방접종 확인", vetKm: 5.6, care: false, mong: false, checked: "2026-09-30" },
+  { name: "예시) 부평 화덕 피자", kind: "식당", area: "인천 부평구", maxKg: 7, indoor: "cage", fee: 0, items: "이동장 필수", vetKm: 1.1, care: false, mong: false, checked: "2026-10-05" },
+  { name: "예시) 바다 앞 조개구이", kind: "식당", area: "인천 중구 · 영종도", maxKg: 25, indoor: "terrace", fee: 0, items: "리드줄", vetKm: 3.7, care: true, mong: false, checked: "2026-10-09" },
+  { name: "예시) 숲속 놀이터 공원", kind: "공원·산책", area: "인천 연수구 · 송도", maxKg: null, indoor: "outdoor", fee: 0, items: "리드줄, 배변봉투", vetKm: 2.4, care: true, mong: false, checked: "2026-10-11" },
+  { name: "예시) 해안 산책로 3코스", kind: "공원·산책", area: "인천 강화군", maxKg: null, indoor: "outdoor", fee: 0, items: "물, 배변봉투", vetKm: 8.9, care: false, mong: false, checked: "2026-10-01" },
+  { name: "예시) 달리는 운동장", kind: "공원·산책", area: "인천 부평구", maxKg: 15, indoor: "outdoor", fee: 5000, items: "중성화·접종 확인, 소형견 구역 분리", vetKm: 1.6, care: false, mong: false, checked: "2026-10-14" }
+];
+
+let KINDS = ["전체", "숙소", "카페", "식당", "공원·산책"];
+const INDOOR = {
+  full: ["실내 동반 가능", "ok"],
+  cage: ["실내는 이동장 안에서만", "warn"],
+  terrace: ["야외 테라스만", "warn"],
+  outdoor: ["야외 시설", "ok"],
+  partial: ["일부 구역만 동반", "warn"],
+  none: ["실내 동반 불가", "no"],
+  unknown: ["확인 필요", "warn"]
+};
+
+const $ = (id) => document.getElementById(id);
+const state = { kg: 4.5, kind: "전체", area: "전체", indoor: false, entryFree: false, free: false, care: false, vet: false, showOut: false };
+// 예시 데이터: 공원·산책만 입장료 대상 (운동장은 유료)
+PLACES.forEach(p => { if (p.kind === "공원·산책") { p.entry = p.fee > 0 ? "paid" : "free"; p.entryText = p.fee > 0 ? `${p.fee.toLocaleString("ko-KR")}원` : "무료"; if (p.fee > 0) p.fee = 0; } });
+let usingSample = true;
+let dataInfo = "";
+
+function sizeName(kg) {
+  if (kg < 7) return "소형견";
+  if (kg < 15) return "중소형견";
+  if (kg < 25) return "중형견";
+  return "대형견";
+}
+function won(n) { return n.toLocaleString("ko-KR") + "원"; }
+
+function reasons(p) {
+  const r = [];
+  if (p.maxKg != null && state.kg > p.maxKg) r.push(`${p.maxKg}kg 이하만 가능해요`);
+  if (state.indoor && p.indoor !== "full") r.push(p.indoor === "unknown" ? "실내 동반 정보가 없어요" : "실내 동반이 안 돼요");
+  if (state.entryFree && p.entry !== "free") r.push(p.entry == null ? "입장 무료 장소가 아니에요" : p.entry === "paid" ? "입장료가 있어요" : "입장료 정보가 없어요");
+  if (state.free && p.fee == null) r.push("요금 정보가 없어요");
+  else if (state.free && p.fee > 0) r.push(`추가 요금 ${won(p.fee)}`);
+  if (state.care && !p.care) r.push("회복기·노견 배려 정보가 없어요");
+  if (state.vet && p.vetKm == null) r.push("24시 병원 거리 정보가 없어요");
+  else if (state.vet && p.vetKm > 3) r.push(`24시 병원까지 ${p.vetKm}km`);
+  return r;
+}
+
+function weightPill(p) {
+  if (p.maxKg != null) return [`${p.maxKg}kg 이하`, state.kg > p.maxKg ? "no" : "ok"];
+  if (p.noLimit || (p.source == null && p.maxKg === null)) return ["몸무게 제한 없음", "ok"];
+  return [p.sizeText ? p.sizeText : "기준 확인 필요", "warn"];
+}
+
+function card(p, why) {
+  const el = document.createElement("article");
+  el.className = "card" + (why.length ? " dim" : "");
+  const weight = weightPill(p);
+  const indoor = p.indoor === "partial" && p.indoorText ? [p.indoorText, "warn"] : (INDOOR[p.indoor] || INDOOR.unknown);
+  const fee = p.fee == null ? ["확인 필요", "warn"] : p.fee === 0 ? ["추가 요금 없음", "ok"] : [won(p.fee) + (p.kind === "숙소" ? " / 1마리 1박" : ""), "warn"];
+  const vet = p.vetKm == null ? ["정보 없음", "warn"] : [`${p.vetKm}km`, p.vetKm <= 3 ? "ok" : "warn"];
+  el.innerHTML = `
+    <div class="card-top">
+      <div><h3></h3><div class="meta"></div></div>
+      <span class="kind"></span>
+    </div>
+    <dl class="conds">
+      <div class="cond"><dt>몸무게</dt><dd><span class="pill ${weight[1]}">${weight[0]}</span></dd></div>
+      <div class="cond"><dt>실내</dt><dd><span class="pill ${indoor[1]}">${indoor[0]}</span></dd></div>
+      <div class="cond entry-row"><dt>입장료</dt><dd><span class="pill entry-pill"></span></dd></div>
+      <div class="cond"><dt>반려견 요금</dt><dd><span class="pill ${fee[1]}">${fee[0]}</span></dd></div>
+      <div class="cond"><dt>준비물</dt><dd class="items"></dd></div>
+      <div class="cond"><dt>24시 병원</dt><dd><span class="pill ${vet[1]}">${vet[0]}</span></dd></div>
+    </dl>
+    <div class="badges"></div>
+    <div class="checked">조건 확인일 ${p.checked}</div>`;
+  el.querySelector("h3").textContent = p.name;
+  el.querySelector(".meta").textContent = p.area;
+  el.querySelector(".kind").textContent = p.kind;
+  el.querySelector(".items").textContent = p.items || "정보 없음";
+  if (p.entry == null) el.querySelector(".entry-row").remove();
+  else {
+    const ep = el.querySelector(".entry-pill");
+    const txt = (p.entryText || "").trim();
+    const short = txt.length > 40 ? txt.slice(0, 40) + "…" : txt;
+    if (p.entry === "free") { ep.classList.add("ok"); ep.textContent = "무료"; }
+    else if (p.entry === "paid") { ep.classList.add("warn"); ep.textContent = short ? "유료 · " + short : "유료"; }
+    else { ep.classList.add("warn"); ep.textContent = "확인 필요"; }
+  }
+  if (p.notes) {
+    const n = document.createElement("div"); n.className = "cond";
+    n.innerHTML = "<dt>참고</dt><dd></dd>"; n.querySelector("dd").textContent = p.notes;
+    el.querySelector(".conds").append(n);
+  }
+  const badges = el.querySelector(".badges");
+  if (p.mong) { const b = document.createElement("span"); b.className = "badge mong"; b.textContent = usingSample ? "몽글이 다녀옴 (예시)" : "몽글이 다녀옴"; badges.append(b); }
+  if (p.care) { const b = document.createElement("span"); b.className = "badge"; b.textContent = "노견·회복기 OK"; badges.append(b); }
+  if (!badges.children.length) badges.remove();
+  if (p.source) el.querySelector(".checked").textContent = `조건 확인일 ${p.checked || "-"} · 출처 ${p.source}`;
+  if (why.length) {
+    const w = document.createElement("p"); w.className = "why"; w.textContent = "안 맞는 조건: " + why.join(", ");
+    el.insertBefore(w, el.querySelector(".checked"));
+  }
+  return el;
+}
+
+function render() {
+  $("wv").textContent = state.kg % 1 === 0 ? state.kg.toFixed(0) : state.kg.toFixed(1);
+  $("sizeName").textContent = sizeName(state.kg);
+  const scope = PLACES.filter(p => (state.kind === "전체" || p.kind === state.kind) && (state.area === "전체" || p.area.startsWith(state.area)));
+  const fit = [], out = [];
+  scope.forEach(p => { const w = reasons(p); (w.length ? out : fit).push([p, w]); });
+  fit.sort((a, b) => Number(b[0].mong) - Number(a[0].mong) || Number(b[0].maxKg != null || !!b[0].noLimit) - Number(a[0].maxKg != null || !!a[0].noLimit) || (a[0].vetKm ?? 99) - (b[0].vetKm ?? 99));
+  $("count").textContent = fit.length + "곳";
+  $("countSub").textContent = `${state.kg}kg ${sizeName(state.kg)}가 갈 수 있는 곳` + (out.length ? ` · 조건이 안 맞는 곳 ${out.length}곳` : "") + (dataInfo ? ` · ${dataInfo}` : "");
+  const cards = $("cards"); cards.replaceChildren();
+  if (fit.length) fit.forEach(([p, w]) => cards.append(card(p, w)));
+  else { const e = document.createElement("div"); e.className = "empty"; e.textContent = "조건에 맞는 곳이 없어요. 꼭 필요한 조건을 하나 풀어 보세요."; cards.append(e); }
+  const btn = $("toggleOut"), oc = $("outCards");
+  btn.hidden = out.length === 0;
+  btn.textContent = state.showOut ? "조건 안 맞는 곳 접기" : `조건 안 맞는 곳 ${out.length}곳도 보기`;
+  oc.hidden = !state.showOut || out.length === 0;
+  oc.replaceChildren(); out.forEach(([p, w]) => oc.append(card(p, w)));
+}
+
+async function loadJson(path) {
+  try {
+    const r = await fetch(path, { cache: "no-store" });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
+}
+
+async function loadData() {
+  const [api, mine] = await Promise.all([loadJson("places.json"), loadJson("my_places.json")]);
+  const apiPlaces = api && Array.isArray(api.places) ? api.places : [];
+  const myPlaces = mine && Array.isArray(mine.places) ? mine.places : [];
+  if (!apiPlaces.length && !myPlaces.length) return;
+  const byId = new Map();
+  apiPlaces.forEach(p => byId.set(String(p.id), p));
+  // my_places.json은 직접 다녀온 곳: 같은 id가 있으면 공공데이터 위에 덮어씀
+  myPlaces.forEach(p => { const id = String(p.id || p.name); byId.set(id, Object.assign({}, byId.get(id) || {}, p)); });
+  PLACES.length = 0;
+  byId.forEach(p => PLACES.push(p));
+  usingSample = false;
+  dataInfo = api && api.updated ? `공공데이터 ${api.updated} 기준` : "";
+  KINDS = ["전체", ...new Set(PLACES.map(p => p.kind).filter(Boolean))];
+  const note = document.querySelector(".sample-note");
+  note.textContent = `장소 ${PLACES.length}곳 · 한국관광공사 데이터`;
+  $("aboutData").textContent = "기본 목록은 한국관광공사 반려동물 동반여행 공개 데이터이고, 몽글이와 직접 다녀온 곳은 \"몽글이 다녀옴\"으로 표시해요. 공개 데이터에는 추가 요금, 24시 병원 거리 정보가 없어서 \"확인 필요\"로 보여요. 방문 전에 장소에 꼭 한 번 더 확인해 주세요.";
+}
+
+async function init() {
+  await loadData();
+  const kc = $("kindChips");
+  KINDS.forEach(k => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = k; b.setAttribute("aria-pressed", String(k === state.kind));
+    b.addEventListener("click", () => { state.kind = k; kc.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", String(c === b))); render(); });
+    kc.append(b);
+  });
+  const areas = ["전체", ...[...new Set(PLACES.map(p => (p.area || "").split(" · ")[0]).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko"))];
+  areas.forEach(a => { const o = document.createElement("option"); o.value = a; o.textContent = a; $("area").append(o); });
+  $("area").addEventListener("change", e => { state.area = e.target.value; render(); });
+  $("weight").addEventListener("input", e => { state.kg = Number(e.target.value); render(); });
+  [["fIndoor", "indoor"], ["fEntry", "entryFree"], ["fFree", "free"], ["fCare", "care"], ["fVet", "vet"]].forEach(([id, key]) =>
+    $(id).addEventListener("change", e => { state[key] = e.target.checked; render(); }));
+  $("toggleOut").addEventListener("click", () => { state.showOut = !state.showOut; render(); });
+  render();
+}
+init();
+</script>
+</body>
+</html>
