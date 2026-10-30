@@ -265,7 +265,7 @@ function card(p, why) {
     <div class="badges"></div>
     <div class="checked">조건 확인일 ${p.checked}</div>`;
   el.querySelector("h3").textContent = p.name;
-  el.querySelector(".meta").textContent = p.area;
+  el.querySelector(".meta").textContent = p.area || "";
   el.querySelector(".kind").textContent = p.kind;
   el.querySelector(".items").textContent = p.items || "정보 없음";
   if (p.entry == null) el.querySelector(".entry-row").remove();
@@ -298,7 +298,7 @@ function render(keepLimit) {
   if (!keepLimit) state.limit = PAGE;
   $("wv").textContent = state.kg % 1 === 0 ? state.kg.toFixed(0) : state.kg.toFixed(1);
   $("sizeName").textContent = sizeName(state.kg);
-  const scope = PLACES.filter(p => (state.kind === "전체" || p.kind === state.kind) && (state.area === "전체" || p.area.startsWith(state.area)));
+  const scope = PLACES.filter(p => (state.kind === "전체" || p.kind === state.kind) && (state.area === "전체" || (p.area || "") === state.area || (p.area || "").startsWith(state.area + " ")));
   const fit = [], out = [];
   scope.forEach(p => { const w = reasons(p); (w.length ? out : fit).push([p, w]); });
   // 공공데이터의 대부분이 아울렛 안 매장(쇼핑)이라, "전체"에서는 쇼핑을 뒤로 보냄
@@ -355,8 +355,22 @@ async function init() {
     b.addEventListener("click", () => { state.kind = k; kc.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", String(c === b))); render(); });
     kc.append(b);
   });
-  const areas = ["전체", ...[...new Set(PLACES.map(p => (p.area || "").split(" · ")[0]).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko"))];
-  areas.forEach(a => { const o = document.createElement("option"); o.value = a; o.textContent = a; $("area").append(o); });
+  // 지역은 시·도별로 묶고, 묶음마다 맨 위에 "○○ 전체"를 둠
+  const sel = $("area"), all = document.createElement("option");
+  all.value = "전체"; all.textContent = "전국 전체"; sel.append(all);
+  const byCity = new Map();
+  PLACES.forEach(p => {
+    const a = (p.area || "").split(" · ")[0]; if (!a) return;
+    const city = a.split(" ")[0];
+    if (!byCity.has(city)) byCity.set(city, new Set());
+    if (a !== city) byCity.get(city).add(a);
+  });
+  [...byCity.keys()].sort((a, b) => a.localeCompare(b, "ko")).forEach(city => {
+    const g = document.createElement("optgroup"); g.label = city;
+    const top = document.createElement("option"); top.value = city; top.textContent = `${city} 전체`; g.append(top);
+    [...byCity.get(city)].sort((a, b) => a.localeCompare(b, "ko")).forEach(a => { const o = document.createElement("option"); o.value = a; o.textContent = a; g.append(o); });
+    sel.append(g);
+  });
   $("area").addEventListener("change", e => { state.area = e.target.value; render(); });
   $("weight").addEventListener("input", e => { state.kg = Number(e.target.value); render(); });
   [["fIndoor", "indoor"], ["fEntry", "entryFree"], ["fFree", "free"], ["fCare", "care"], ["fVet", "vet"]].forEach(([id, key]) =>
