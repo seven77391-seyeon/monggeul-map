@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://pet-companion-map.vercel.app/sitemap.xml
+Sitemap: https://pet-weight-map.vercel.app/sitemap.xml
